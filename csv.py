@@ -18,28 +18,18 @@ class CSVTable():
         '''
 
         # Check error
-        if table_name not in ["People", "Appearances", "Batting"]:
-            print "Invalid table name input"
-            return
-
-        if table_file not in ["People.csv", "Appearances.csv", "Batting.csv"]:
-            print "Invalid file name input"
-            return
 
         if len(key_columns) != len(set(key_columns)):
             print "Duplicate primary key"
             return
 
         self.table_name = table_name
-        self.file_name = self.data_dir + table_file
+        self.table_file = self.data_dir + table_file
         self.key_columns = key_columns
         self.len_key_columns = len(key_columns)
         self.keys = []
         self.table = []
         self.updated = False
-
-
-
 
     def __str__(self):
         '''
@@ -56,19 +46,19 @@ class CSVTable():
         Load information from CSV file.
         :return: None
         '''
-        with open(self.file_name, 'rb') as csvfile:
+        with open(self.table_file) as csvfile:
+            readf = csv.DictReader(csvfile)
 
-            f = csv.DictReader(csvfile)
-
-            for row in f:
+            for row in readf:
                 self.table.append(row)
 
+        print self.table[0]
         self.keys = self.table[0].keys()
 
         # Check error for primary keys
         for k in self.key_columns:
             if k not in self.keys:
-                print "Inconsistent primary key with file columns"
+                print "Key column inserted not found in file columns: " + k
                 return
 
     def find_by_primary_key(self, s, fields=None):
@@ -84,10 +74,13 @@ class CSVTable():
             print "Primary key length inconsistent"
             return
 
+        if self.wrong_key_input(fields):
+            return
+
         ret = {}
         for row in self.table:
             found = True
-            for i,v in enumerate(s):
+            for i, v in enumerate(s):
                 if row[self.key_columns[i]] != v:
                     found = False
                     break
@@ -106,13 +99,16 @@ class CSVTable():
         '''
 
         # Check error
-        if self.wrong_key_input(t):
+        if self.wrong_key_input(t.keys()):
+            return
+
+        if self.wrong_key_input(fields):
             return
 
         ret = []
         for row in self.table:
             found = True
-            for k,v in t.values():
+            for k, v in t.items():
                 if row[k] != v:
                     found = False
                     break
@@ -134,9 +130,10 @@ class CSVTable():
             print "No save needed"
             return
 
-        with open(self.file_name, 'w') as csvfile:
-            writer = csv.DictWriter(csvfile)
+        with open(self.table_file, 'w') as csvfile:
 
+            writer = csv.DictWriter(csvfile, fieldnames=self.keys)
+            writer.writeheader()
             for row in self.table:
                 writer.writerow(row)
 
@@ -150,26 +147,29 @@ class CSVTable():
         '''
 
         # Check error
-        if len(r) != len(self.keys):
-            print "Inconsistent column size inserted" + len(r)
-            return
-
-        if self.wrong_key_input(r):
+        if self.wrong_key_input(r.keys()):
             return
 
         for k in self.key_columns:
             val = r.get(k, None)
-            if not r:
-                print "Primary key value not inserted"
+            if not val:
+                print "Primary key value not inserted: " + k
                 return
 
         for row in self.table:
             for key in self.key_columns:
                 if row[key] == r[key]:
-                    print "Duplicate primary key values" + key
+                    print "Duplicate primary key values: " + key
                     return
 
-        self.table.append(r)
+        toappend = {}
+        for key in self.keys:
+            if key in r.keys():
+                toappend[key] = r[key]
+            else:
+                toappend[key] = None
+
+        self.table.append(toappend)
         self.updated = True
 
     def delete(self, t):
@@ -179,7 +179,7 @@ class CSVTable():
         :return: None. Table is updated.
         '''
 
-        if self.wrong_key_input(t):
+        if self.wrong_key_input(t.keys()):
             return
 
         for idx, row in enumerate(self.table):
@@ -195,9 +195,11 @@ class CSVTable():
 
     def wrong_key_input(self, d):
 
-        for k in d.keys():
-            if k not in self.keys():
-                print "Invalid key input:" + "k"
+        for k in d:
+            if k not in self.keys:
+                print "Invalid key input: " + k
                 return True
 
         return False
+
+
